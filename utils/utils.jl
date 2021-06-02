@@ -9,8 +9,8 @@ function generate_radii(seed, natoms, radius_1, radius_2, rstd_1, rstd_2)
     natoms_by_2 = convert(Int64, natoms/2)
     radii_arr_1 = rand(normal_1, natoms_by_2)
     radii_arr_2 = rand(normal_2, natoms_by_2)
-    return cat(radii_arr_1,
-               radii_arr_2, dims = (1, natoms))
+    return vcat(radii_arr_1,
+               radii_arr_2)
 end
 
 
