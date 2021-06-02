@@ -20,6 +20,7 @@ test_coords = [6.43109269, 2.55893249,
                6.53090015, 5.3332587,
                3.07972527, 5.20893375]
 
+
 test_box_length = 6.673592625078725
 box_vec = [test_box_length, test_box_length]
 
@@ -29,9 +30,10 @@ cpp_hessian = readdlm("hessian.csv",',')
 cpp_gradient = readdlm("gradient.csv",',')
 cpp_energy = readdlm("energy.csv",',')
 
-julia_energy = system_energy(pot, test_coords)
-julia_gradient = system_gradient(pot, test_coords)
-julia_hessian = system_hessian(pot, test_coords)
+
+@time julia_energy = system_energy(pot, test_coords)
+@time julia_gradient = system_gradient(pot, test_coords)
+@time julia_hessian = system_hessian(pot, test_coords)
 
 @test all(cpp_energy .≈ julia_energy)
 @test all(cpp_hessian .≈ julia_hessian)
