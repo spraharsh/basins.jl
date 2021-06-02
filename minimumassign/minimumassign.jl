@@ -20,14 +20,47 @@ end
 
 
 
-function gradient_problem_function(potential)
+function gradient_problem_function_cvode!(potential)
     # Helper functions
-    negative_grad(pot_, x_) = -system_gradient(pot_, x_) #  ODE function
-    negative_hess(pot_, x_) = -system_hessian(pot_, x_) # jacobian
-    func(u, p, t) = negative_grad(potential, u)
-    jacobian(u, p, t) = negative_hess(potential, u)
-    return ODEFunction(func, jac = jacobian)
+    negative_grad!(pot_, x_) = -system_gradient!(pot_, x_) #  ODE function
+    negative_hess!(pot_, x_) = -system_hessian!(pot_, x_) # jacobian
+    function jacobian!(J, u, p, t)
+        potential.f_eval +=1
+        J = negative_hess!(potential, u)
+        nothing
+    end
+    
+    function func!(u, p, t)
+        potential.jac_eval+=1
+        return negative_grad!(potential, u)
+    end
+
+    return ODEFunction(func!, jac = jacobian!)
 end
+
+
+"""
+I don't know why the previous version wasn't working with QNDF, and this one doesnt work with CVODE
+so I took the quicker route of writing two different but really the same functions instead of
+figuring out the root of my problem 
+"""
+function gradient_problem_function_qndf!(potential)
+    # Helper functions
+    negative_grad!(pot_, x_) = -system_gradient!(pot_, x_) #  ODE function
+    negative_hess!(pot_, x_) = -system_hessian!(pot_, x_) # jacobian
+    function jacobian!( u, p, t)
+        potential.f_eval +=1
+        return negative_hess!(potential, u)
+    end
+    
+    function func!(u, p, t)
+        potential.jac_eval+=1
+        return negative_grad!(potential, u)
+    end
+
+    return ODEFunction(func!, jac = jacobian!)
+end
+
 
 
 function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initial_point, maxsteps)    
@@ -40,17 +73,20 @@ function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initia
     integrator = init(prob, ba.solver, reltol=ba.reltol, abstol=ba.abstol)
     
     converged = false
-    step_number = 1
+    step_number = 0
     while (!converged && step_number<=maxsteps)
 	    step!(integrator)
         step_number += 1
         converged = convergence_check(get_du(integrator))
     end
-    nf = integrator.destats.nf
-    nsolve = integrator.destats.nsolve
-    nw = integrator.destats.nw
+    println(integrator.sol.destats)
+    nf = integrator.sol.destats.nf
+    nsolve = step_number
+    nw = integrator.sol.destats.nw
     success = converged
     return (integrator.u, nw, nf, nsolve, nw)
 end
+
+
 
 
