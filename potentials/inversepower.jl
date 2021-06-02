@@ -29,17 +29,21 @@ using ForwardDiff
 abstract type AbstractPotential end
 
 
-struct InversePowerPeriodic <: AbstractPotential
+mutable struct InversePowerPeriodic <: AbstractPotential
     dim::Integer
     power::Real
     epsilon::Real
     # TODO: auto calculate from dim and box length to prevent DimensionMismatch
     box_vec
     radii
-    InversePowerPeriodic(dim, power, epsilon,box_vec, radii) = new(dim, power, epsilon,box_vec, radii)
+    # wrote these to ensure that the function evaluations are counted accurately
+    # ideally they shouldn't be in this struct
+    f_eval
+    jac_eval
+    InversePowerPeriodic(dim, power, epsilon,box_vec, radii, f_eval, jac_eval) = new(dim, power, epsilon,box_vec, radii, f_eval, jac_eval)
 end
 
-
+InversePowerPeriodic(dim, power, epsilon, box_vec, radii) = InversePowerPeriodic(dim, power, epsilon,box_vec, radii, 0, 0)
 
 
 function pairwise_energy(potential::InversePowerPeriodic, r2::Real, radius_sum::Real)
@@ -52,9 +56,15 @@ function pairwise_energy(potential::InversePowerPeriodic, r2::Real, radius_sum::
 end
 
 
-function system_energy(potential, x)
-    natoms::Integer = size(x, 1)/potential.dim
-    if natoms*potential.dim != size(x, 1)
+@inline function unravel_index(i, j, ndim)
+	return i*2 - 1 + j*2-1
+end
+
+function system_energy!(potential, x)
+    dim = potential.dim
+    natoms::Integer = size(x, 1)/dim
+    
+    if natoms*dim != size(x, 1)
         throw(DimensionMismatch(x, "coordinates have the wrong dimensions"))
     end
 
@@ -64,22 +74,23 @@ function system_energy(potential, x)
 
     x_ = reshape(x, (potential.dim, natoms))
     energy::Real = 0
-    for atomi in 1:natoms
-        for atomj in (atomi+1):natoms
-            r2 = peuclidean(x_[:, atomi], x_[:, atomj], potential.box_vec)^2
-            energy += pairwise_energy(potential,r2,  potential.radii[atomi]+ potential.radii[atomj])
+    for i in 1:natoms
+        for j in (i+1):natoms
+            @inbounds r2 = peuclidean(x_[:, i], x_[:, j], potential.box_vec)^2
+            @inbounds energy += pairwise_energy(potential,r2,  (potential.radii[i]+ potential.radii[j]))
         end
     end
     return energy
 end
 
-function system_gradient(potential, x)
-    f(x_) = system_energy(potential, x_)
+
+function system_gradient!(potential, x)
+    f(x_) = system_energy!(potential, x_)
     return ForwardDiff.gradient(f, x)
 end
 
-function system_hessian(potential, x)
-    f(x_) = system_energy(potential, x_)
+function system_hessian!(potential, x)
+    f(x_) = system_energy!(potential, x_)
     return ForwardDiff.hessian(f, x)
 end
 
