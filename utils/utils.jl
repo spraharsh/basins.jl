@@ -20,9 +20,11 @@ function get_box_length(radii, phi, dim)
     if dim == 3
         vol_spheres = sum(4/3*pi*(radii).^3)
         box_length = (vol_spheres/phi)^(1/3)
-    else
+    elseif dim == 2
         vol_discs = sum(pi*(radii).^2)
         box_length = (vol_discs/phi)^(1/2)
+    else
+        throw("not implemented")
     end
     return box_length
 end
