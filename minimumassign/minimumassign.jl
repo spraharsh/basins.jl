@@ -10,6 +10,7 @@ using LinearAlgebra
 include("../potentials/inversepower.jl")
 
 
+
 struct BasinAssigner
     solver
     reltol
@@ -25,13 +26,17 @@ function gradient_problem_function_cvode!(potential)
     negative_grad!(pot_, x_) = -system_gradient!(pot_, x_) #  ODE function
     negative_hess!(pot_, x_) = -system_hessian!(pot_, x_) # jacobian
     function jacobian!(J, u, p, t)
-        potential.f_eval +=1
+        potential.jac_eval +=1
+        print("jac eval :")
+        println(potential.jac_eval)
         J = negative_hess!(potential, u)
         nothing
     end
     
     function func!(u, p, t)
-        potential.jac_eval+=1
+        potential.f_eval+=1
+        print("function :")
+        println(potential.f_eval)
         return negative_grad!(potential, u)
     end
 
@@ -49,12 +54,12 @@ function gradient_problem_function_qndf!(potential)
     negative_grad!(pot_, x_) = -system_gradient!(pot_, x_) #  ODE function
     negative_hess!(pot_, x_) = -system_hessian!(pot_, x_) # jacobian
     function jacobian!( u, p, t)
-        potential.f_eval +=1
+        potential.jac_eval +=1
         return negative_hess!(potential, u)
     end
     
     function func!(u, p, t)
-        potential.jac_eval+=1
+        potential.f_eval+=1
         return negative_grad!(potential, u)
     end
 
@@ -63,7 +68,7 @@ end
 
 
 
-function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initial_point, maxsteps)    
+function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initial_point, maxsteps, potential)    
     convergence_check(g_) = norm(g_) < ba.convtol
 
     tspan = (0, 100000.)
@@ -71,13 +76,18 @@ function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initia
     
     prob = ODEProblem(func, initial_point, tspan)
     integrator = init(prob, ba.solver, reltol=ba.reltol, abstol=ba.abstol)
-    
+    println(ba.reltol)
+    println(ba.abstol)
     converged = false
     step_number = 0
     while (!converged && step_number<=maxsteps)
 	    step!(integrator)
         step_number += 1
+        # print("step number: ")
+        # println(step_number)
         converged = convergence_check(get_du(integrator))
+        # @show system_energy!(potential, integrator.u)
+        @show u, t
     end
     println(integrator.sol.destats)
     nf = integrator.sol.destats.nf
