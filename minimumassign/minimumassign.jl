@@ -44,6 +44,17 @@ function gradient_problem_function_cvode!(potential)
 end
 
 
+function gradient_problem_function_all!(potential)
+    # Helper functions
+    negative_grad!(pot_, x_) = -system_gradient!(pot_, x_) #  ODE function
+    
+    function func!(u, p, t)
+        potential.f_eval+=1
+        return negative_grad!(potential, u)
+    end
+    return ODEFunction(func!)
+end
+
 """
 I don't know why the previous version wasn't working with QNDF, and this one doesnt work with CVODE
 so I took the quicker route of writing two different but really the same functions instead of
@@ -76,18 +87,14 @@ function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initia
     
     prob = ODEProblem(func, initial_point, tspan)
     integrator = init(prob, ba.solver, reltol=ba.reltol, abstol=ba.abstol)
-    println(ba.reltol)
-    println(ba.abstol)
     converged = false
     step_number = 0
     while (!converged && step_number<=maxsteps)
 	    step!(integrator)
         step_number += 1
-        # print("step number: ")
-        # println(step_number)
         converged = convergence_check(get_du(integrator))
-        # @show system_energy!(potential, integrator.u)
-        @show u, t
+        @show system_energy!(potential, integrator.u)
+        @show integrator.u
     end
     println(integrator.sol.destats)
     nf = integrator.sol.destats.nf
@@ -96,6 +103,7 @@ function find_corresponding_minimum(ba::BasinAssigner, func::ODEFunction, initia
     success = converged
     return (integrator.u, nw, nf, nsolve, nw)
 end
+
 
 
 
