@@ -16,7 +16,7 @@ include("utils/utils.jl")
 
 
 natoms = 8
-radii_arr = generate_radii(0, natoms, 1., 1.4, 0.05, 0.05 * 1.4)
+radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
 dim = 2.0
 phi = 0.9
 power = 2.5
@@ -29,11 +29,11 @@ length = get_box_length(radii_arr, phi, dim)
 
 volume = length^3
 println(volume)
-println 
+println
 
 
-potential_qndf = InversePowerPeriodic(2, power, eps, [length, length],  radii_arr)
-potential_cvode = InversePowerPeriodic(2, power, eps, [length, length],  radii_arr)
+potential_qndf = InversePowerPeriodic(2, power, eps, [length, length], radii_arr)
+potential_cvode = InversePowerPeriodic(2, power, eps, [length, length], radii_arr)
 
 coords = generate_random_coordinates(length, natoms, dim)
 
@@ -46,9 +46,21 @@ ba_auto_switch = BasinAssigner(AutoTsit5(Rosenbrock23()), tol, tol, 1e-4)
 
 
 
-final_qndf = find_corresponding_minimum(ba_qndf, gradient_problem_function_qndf!(potential_qndf), coords, 500, potential_qndf)
+final_qndf = find_corresponding_minimum(
+    ba_qndf,
+    gradient_problem_function_qndf!(potential_qndf),
+    coords,
+    500,
+    potential_qndf,
+)
 
-final_cvode = find_corresponding_minimum(ba_cvode_bdf, gradient_problem_function_cvode!(potential_cvode), coords, 1000, potential_cvode)
+final_cvode = find_corresponding_minimum(
+    ba_cvode_bdf,
+    gradient_problem_function_cvode!(potential_cvode),
+    coords,
+    1000,
+    potential_cvode,
+)
 
 # final_auto_switch = find_corresponding_minimum(ba_auto_switch, gradient_problem_function_qndf!(potential_qndf), coords, 500, potential_qndf)
 
@@ -66,25 +78,3 @@ println("Hessian CVODE")
 # println(eigvals(system_hessian!(potential_cvode, final_qndf[1])))
 println("Final Hessian QNDF")
 # println(eigvals(system_hessian!(potential_qndf, final_cvode[1])))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
