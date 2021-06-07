@@ -16,7 +16,7 @@ include("utils/utils.jl")
 
 
 natoms = 8
-radii_arr = generate_radii(0, natoms, 1.,1.4, 0.05, 0.05*1.4)
+radii_arr = generate_radii(0, natoms, 1., 1.4, 0.05, 0.05 * 1.4)
 dim = 2.0
 phi = 0.9
 power = 2.5
@@ -35,18 +35,12 @@ println
 potential_qndf = InversePowerPeriodic(2, power, eps, [length, length],  radii_arr)
 potential_cvode = InversePowerPeriodic(2, power, eps, [length, length],  radii_arr)
 
-
-println(length)
-
 coords = generate_random_coordinates(length, natoms, dim)
-println(coords)
 
-
-
-tol = 1e-4
-ba_qndf = BasinAssigner(QNDF(), tol, tol, 1e-6) # The convergence tolerance is error in gradient
-ba_cvode_bdf = BasinAssigner(CVODE_BDF(), tol, tol, 1e-6)
-ba_auto_switch = BasinAssigner(AutoTsit5(Rosenbrock23()), tol, tol, 1e-6)
+tol = 1e-6
+ba_qndf = BasinAssigner(QNDF(), tol, tol, 1e-4) # The convergence tolerance is error in gradient
+ba_cvode_bdf = BasinAssigner(CVODE_BDF(), tol, tol, 1e-4)
+ba_auto_switch = BasinAssigner(AutoTsit5(Rosenbrock23()), tol, tol, 1e-4)
 
 
 
@@ -56,16 +50,13 @@ final_qndf = find_corresponding_minimum(ba_qndf, gradient_problem_function_qndf!
 
 final_cvode = find_corresponding_minimum(ba_cvode_bdf, gradient_problem_function_cvode!(potential_cvode), coords, 1000, potential_cvode)
 
-final_auto_switch = find_corresponding_minimum(ba_auto_switch, gradient_problem_function_qndf!(potential_qndf), coords, 500, potential_qndf)
-
-
+# final_auto_switch = find_corresponding_minimum(ba_auto_switch, gradient_problem_function_qndf!(potential_qndf), coords, 500, potential_qndf)
 
 
 println(potential_cvode.f_eval)
 println(potential_cvode.jac_eval)
 # println(final_qndf)
 println(final_cvode)
-
 # println(final_auto_switch)
 
 
