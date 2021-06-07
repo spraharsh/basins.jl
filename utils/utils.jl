@@ -14,8 +14,6 @@ function generate_radii(seed, natoms, radius_1, radius_2, rstd_1, rstd_2)
 end
 
 
-
-
 function get_box_length(radii, phi, dim)
     if dim == 3
         vol_spheres = sum(4/3*pi*(radii).^3)
