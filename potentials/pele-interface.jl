@@ -37,15 +37,13 @@ function system_hessian_pele(pot::PythonPotential, x)
     return pot.pele_potential.getEnergyGradientHessian(x)[3]
 end
 
-function gradient_problem_function_all!(potential)
+function gradient_problem_function_pele(potential)
     function func!(du, u, p, t)
-        du .= -system_gradient_pele(potential)
+        du .= -system_gradient_pele(potential, u)
         nothing
     end
     return ODEFunction(func!)
 end
-
-
 
 if abspath(PROGRAM_FILE) == @__FILE__
     ippot = pot.InversePower(2.5, 1.0, [1., 1.], ndim =2)
