@@ -23,7 +23,6 @@ end
 
 
 
-
 function gradient_problem_function_all!(potential)
     function func!(du, u, p, t)
         potential.f_eval += 1
