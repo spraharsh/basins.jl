@@ -32,3 +32,14 @@ function generate_random_coordinates(box_length, natoms, dim)
     s = convert(Int64, natoms * dim)
     return rand(dist, s)
 end
+
+
+function generate_random_coordinates(seed::Int, box_length, natoms, dim)
+    Random.seed!(seed)
+    dist = Uniform(0, box_length)
+    println(natoms * dim)
+    s = convert(Int64, natoms * dim)
+    return rand(dist, s)
+end
+
+
