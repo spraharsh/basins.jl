@@ -29,6 +29,10 @@ function system_energy_pele(pot::PythonPotential, x)
     return pot.pele_potential.getEnergy(x)
 end
 
+function system_gradient_pele!(pot::PythonPotential, x, grad)
+    return pot.pele_potential.getEnergyGradientInPlace(x, grad)
+end
+
 function system_gradient_pele(pot::PythonPotential, x)
     return pot.pele_potential.getEnergyGradient(x)[2]
 end
@@ -37,9 +41,11 @@ function system_hessian_pele(pot::PythonPotential, x)
     return pot.pele_potential.getEnergyGradientHessian(x)[3]
 end
 
-function gradient_problem_function_pele(potential)
+
+function gradient_problem_function_pele!(potential)
     function func!(du, u, p, t)
-        du .= -system_gradient_pele(potential, u)
+        -system_gradient_pele!(potential, u, du)
+        du .= -du
         nothing
     end
     return ODEFunction(func!)
