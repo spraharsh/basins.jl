@@ -8,7 +8,7 @@ using SparseArrays
 
 pot = pyimport("pele.potentials")
 
-th = pot.InversePower(2.5, 1.0, [1,1,1], ndim=2)
+th = pot.InversePower(2.5, 1.0, [1, 1, 1], ndim = 2)
 
 """
 calls C++ potentials through the python wrapper and PyCall
@@ -52,11 +52,10 @@ function gradient_problem_function_pele!(potential)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    ippot = pot.InversePower(2.5, 1.0, [1., 1.], ndim =2)
+    ippot = pot.InversePower(2.5, 1.0, [1.0, 1.0], ndim = 2)
     wrapped_pot = PythonPotential(ippot)
-    x = [1.,0., 2., 0]
-    system_energy_pele(wrapped_pot,x )
+    x = [1.0, 0.0, 2.0, 0]
+    system_energy_pele(wrapped_pot, x)
     system_gradient_pele(wrapped_pot, x)
     sparse(system_hessian_pele(wrapped_pot, x))
 end
-

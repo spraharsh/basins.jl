@@ -41,5 +41,3 @@ function generate_random_coordinates(seed::Int, box_length, natoms, dim)
     s = convert(Int64, natoms * dim)
     return rand(dist, s)
 end
-
-
