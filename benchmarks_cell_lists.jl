@@ -21,7 +21,7 @@ include("utils/utils.jl")
 
 natoms = 1024
 radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
-dim = 2.0
+dim = 2
 phi = 0.9
 power = 2.5
 eps = 1
@@ -31,7 +31,7 @@ length_arr = get_box_length(radii_arr, phi, dim)
 coords = generate_random_coordinates(length_arr, natoms, dim)
 
 tol = 1e-4
-tspan = (0, 100.0)
+tspan = (0, 100000.0)
 
 print("using OMP NUM THREADS: ")
 println(ENV["OMP_NUM_THREADS"])
@@ -85,21 +85,27 @@ solnames = [
     "CVODE_BDF TFQMR",
 ]
 
-@time sol = solve(prob, CVODE_BDF(), abstol = 1 / 10^12, reltol = 1 / 10^12);
+@time sol =
+    solve(prob, CVODE_BDF(linear_solver = :PCG), abstol = 1 / 10^6, reltol = 1 / 10^5);
 sol.destats
 
+vars = []
+for i = 1:natoms
+    push!(vars, (2 * i - 1, 2 * i))
+end
+println(vars)
 
-wp2 = WorkPrecisionSet(
-    prob,
-    abstols,
-    reltols,
-    setups;
-    error_estimate = :l2,
-    names = solnames,
-    appxsol = sol,
-    maxiters = Int(1e5),
-    numruns = 1,
-);
-plot(wp2)
+# wp2 = WorkPrecisionSet(
+#     prob,
+#     abstols,
+#     reltols,
+#     setups;
+#     error_estimate = :l2,
+#     names = solnames,
+#     appxsol = sol,
+#     maxiters = Int(1e5),
+#     numruns = 1,
+# );
+# plot(wp2)
 
-savefig("comparison_cvode_cell_lists_OMP_THREADS_" * string(ENV["OMP_NUM_THREADS"]))
+# savefig("comparison_cvode_cell_lists_OMP_THREADS_" * string(ENV["OMP_NUM_THREADS"]))

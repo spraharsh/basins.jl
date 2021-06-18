@@ -19,15 +19,18 @@ function make_IP_potential(natoms, dim, phi, power, eps, seed)
     length = get_box_length(radii_arr, phi, dim)
     boxvec = [length, length]
     cell_scale = cell_utils.get_ncellsx_scale(radii_arr, boxvec)
-    return (pot.InversePower(
-        power,
-        eps,
-        radii_arr,
-        ndim = dim,
-        boxvec = boxvec,
-        use_cell_lists = true,
-        ncellx_scale = cell_scale,
-    ), length)
+    return (
+        pot.InversePower(
+            power,
+            eps,
+            radii_arr,
+            ndim = dim,
+            boxvec = boxvec,
+            use_cell_lists = true,
+            ncellx_scale = cell_scale,
+        ),
+        length,
+    )
 end
 
 

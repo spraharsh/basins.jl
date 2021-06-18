@@ -65,20 +65,16 @@ function find_corresponding_minimum(
     potential,
 )
     convergence_check(g_) = norm(g_) < ba.convtol
-
     tspan = (0, 100000.0)
-
-
-    prob = ODEProblem(func, initial_point, tspan)
+    prob = ODEProblem{true}(func, initial_point, tspan)
     integrator = init(prob, ba.solver, reltol = ba.reltol, abstol = ba.abstol)
     converged = false
     step_number = 0
+    println("step done")
     while (!converged && step_number <= maxsteps)
         step!(integrator)
         step_number += 1
         converged = convergence_check(get_du(integrator))
-        @show system_energy!(potential, integrator.u)
-        @show integrator.u
     end
     println(integrator.sol.destats)
     nf = integrator.sol.destats.nf
