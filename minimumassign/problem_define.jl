@@ -1,5 +1,5 @@
 @doc raw"""
-    Quicker definitions of potentials we wish to use
+    Defines a minimization problem, given a potential and a seed
 """
 
 include("../potentials/pele-interface.jl")
@@ -11,15 +11,13 @@ cell_utils = pyimport("pele.utils.cell_scale")
 
 """
 Makes InversePower Potential given specifications
-also returns box length since it is needed for
-generating coordinates
 """
 function make_IP_potential(natoms, dim, phi, power, eps, seed)
     radii_arr = generate_radii(seed, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
     length = get_box_length(radii_arr, phi, dim)
     boxvec = [length, length]
     cell_scale = cell_utils.get_ncellsx_scale(radii_arr, boxvec)
-    return (pot.InversePower(
+    return pot.InversePower(
         power,
         eps,
         radii_arr,
@@ -27,8 +25,9 @@ function make_IP_potential(natoms, dim, phi, power, eps, seed)
         boxvec = boxvec,
         use_cell_lists = true,
         ncellx_scale = cell_scale,
-    ), length)
+    )
 end
+
 
 
 # Potentials we want to use for comparison
