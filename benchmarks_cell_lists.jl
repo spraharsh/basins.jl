@@ -53,6 +53,7 @@ pele_wrapped_pot = pot.InversePower(
     use_cell_lists = true,
     ncellx_scale = cell_scale,
 )
+
 pele_wrapped_pot.getEnergy(coords)
 
 pele_wrapped_python_pot = PythonPotential(pele_wrapped_pot)

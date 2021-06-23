@@ -1,13 +1,12 @@
 @doc raw"""
     Defines a minimization problem, given a potential and a seed
+    
 """
 
 include("../potentials/pele-interface.jl")
 include("../utils/utils.jl")
 
-
 cell_utils = pyimport("pele.utils.cell_scale")
-
 
 """
 Makes InversePower Potential given specifications
@@ -27,8 +26,6 @@ function make_IP_potential(natoms, dim, phi, power, eps, seed)
         ncellx_scale = cell_scale,
     )
 end
-
-
 
 # Potentials we want to use for comparison
 make_canonical_2d_IP_potential = natoms -> make_IP_potential(natoms, 2, 0.9, 2.5, 1.0, 0)
