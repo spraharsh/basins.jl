@@ -108,7 +108,7 @@ Fix function evaluations
 end
 
 
-function minimize(NLS::NewtonLinesearch, max_steps::Int = 10000)
+function minimize!(NLS::NewtonLinesearch, max_steps::Int = 10000)
     for i = 1:max_steps
         converged = one_iteration!(NLS)
         if converged
