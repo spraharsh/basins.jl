@@ -16,25 +16,26 @@ Mixed descent to assign minimum as fast as possible
 """
 mutable struct Mixed_Descent
     integrator
-    optimizer::AbstractOptimizer
-    potential::AbstractPotential
+    optimizer
+    potential
     converged
     iter_number
     conv_tol
     lambda_tol
     T
+    N
     switch_to_phase_2::Bool
     use_phase_1::Bool
     hessian_calculated::Bool
     hess::Any
-    coords
+    coords::Vector{Float64}
 end
 
 
 
-function Mixed_Descent(pot, ode_solver, optimizer, coords,  T, ode_tol, lambda_tol, conv_tol)
+function Mixed_Descent(pot::AbstractPotential, ode_solver, optimizer::AbstractOptimizer, coords,  T, ode_tol, lambda_tol, conv_tol)
     odefunc_pele = gradient_problem_function_pele!(pot)
-    tspan = (0, 10000.)
+    tspan = (0, 100.)
     prob = ODEProblem{true}(odefunc_pele, coords, tspan)
     ode_solver = CVODE_BDF()
     println(ode_tol)
@@ -45,9 +46,10 @@ function Mixed_Descent(pot, ode_solver, optimizer, coords,  T, ode_tol, lambda_t
     switch_to_phase_2 = false
     use_phase_1 = true
     hessian_calculated = false
+    N = length(coords)
     hess = (zeros((length(coords), length(coords))))
-    coords_in = zeros(length(coords))
-    Mixed_Descent(integrator, optimizer, pot, converged, iter_number, conv_tol, lambda_tol, T, switch_to_phase_2, use_phase_1, hessian_calculated, hess, coords_in)
+    coords_in = copy(coords)
+    Mixed_Descent(integrator, optimizer, pot, converged, iter_number, conv_tol, lambda_tol, T, N, switch_to_phase_2, use_phase_1, hessian_calculated, hess, coords_in)
 end
 
 
@@ -55,20 +57,23 @@ end
 
 function one_iteration!(mxd::Mixed_Descent)
     # Convexity check during cvode phase
-    if (mxd.iter_number % mxd.T == 0 & mxd.iter_number>0 & !(mxd.switch_to_phase_2))
-        hess = system_hessian_pele(pot, x)
+    println(mxd.iter_number%mxd.T == 0)
+    println(mxd.switch_to_phase_2)
+    
+    if (mxd.iter_number % mxd.T == 0 & (mxd.iter_number>0) & !(mxd.switch_to_phase_2))
+        hess = system_hessian_pele(mxd.potential, mxd.integrator.u)
         hess_eigvals = eigvals(hess)
-        println(hess_eigvals)
         min_eigval = minimum(hess_eigvals)
         max_eigval = maximum(hess_eigvals)
         if (max_eigval==0)
             max_eigval = 10^(-8)
         end
+        print("min_eigval: ")
+        println(min_eigval)
         convexity_estimate = abs(min_eigval/max_eigval)
-        
-        if (min_eigval<0 & convexity_estimate >= mxd.conv_tol)
+        if ((min_eigval< -10^-8) & (convexity_estimate >= mxd.conv_tol))
             mxd.switch_to_phase_2 = false
-        elseif (min_eigval < 0 & convexity_estimate<mxd.conv_tol)
+        elseif ((min_eigval < -10^-8) & (convexity_estimate<mxd.conv_tol))
             mxd.switch_to_phase_2 =false
         else
             mxd.switch_to_phase_2 = true
@@ -81,7 +86,8 @@ function one_iteration!(mxd::Mixed_Descent)
         step!(mxd.integrator)
         mxd.iter_number +=1
     else
-        converged = minimize!(mxd.optimizer)
+        minimize!(mxd.optimizer)
+        converged = true
         mxd.iter_number += mxd.optimizer.nsteps
     end
     converged
@@ -89,6 +95,7 @@ end
 
 function run!(mxd::Mixed_Descent, max_steps::Int = 10000)
     for i = 1:max_steps
+        println(i)
         converged = one_iteration!(mxd)
         if converged
             break
@@ -99,7 +106,7 @@ end
 
 
 
-natoms = 8
+natoms = 64
 radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
 dim = 2
 phi = 0.9
@@ -123,7 +130,7 @@ pele_wrapped_pot = pot.InversePower(
     radii_arr,
     ndim = 2,
     boxvec = boxvec,
-    use_cell_lists = true,
+    use_cell_lists = false,
     ncellx_scale = cell_scale,
 )
 
@@ -136,8 +143,25 @@ using IterativeSolvers
 
 
 # Todo remember to provide a good starting guess
-function lsolve_lsmr!(x::Vector{AbstractFloat}, A, b::Vector{AbstractFloat})
-    IterativeSolvers.lsmr!(x, A, b)
+function lsolve_lsmr!(x, A, b) 
+   println("this")
+    print("eigenvalues original")
+    min_eigval = minimum(eigvals(A))
+    println(eigvals(A))
+    if min_eigval<0
+        print("minimum eigenvalue")
+        println(min_eigval)
+        A[diagind(A)] .-=  - 2*min_eigval
+    end
+    print("eigenvalues:")
+    println("-------- Eigenvalues ")
+    # print(eigvals(A))
+    # IterativeSolvers.lsmr!(x, A, b)
+    # print("x out of solver:")
+    # println(x)
+    # x
+    x .= qr!(A, Val(true)) \ b
+    println(x)
 end
 
 
@@ -170,12 +194,24 @@ using Sundials
 solver = CVODE_BDF()
 
 println(pele_wrapped_pot)
-mxd = Mixed_Descent(pele_wrapped_python_pot, CVODE_BDF, nls, coords,  10, 10^-8, 0, 10^-3)
+println(coords)
+println(boxvec)
+println(radii_arr)
+mxd = Mixed_Descent(pele_wrapped_python_pot, solver, nls, coords,  30, 10^-5, 0.0 , 10^-3)
+println(coords)
 
 
 
 
 
 
-one_iteration!(mxd)
+run!(mxd, 2000)
+
+println(coords)
+println(mxd.integrator.u .- coords)
+println("hellow world")
+println(p_energy(coords))
+
+
+
 

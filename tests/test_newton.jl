@@ -28,9 +28,9 @@ end
 """
 svd maybe slower but apparently gives the minimum norm solution
 """
-function lsolve_svd!(x::Vector{AbstractFloat}, A, b::Vector{AbstractFloat})
+function lsolve_svd!(x, A, b)
     # cholesky!(A)
-    lu!(A)
+    svd!(A)
     # calculate nullspace of A
     x .= A \ b
 end
@@ -38,7 +38,7 @@ end
 
 
 # Todo remember to provide a good starting guess
-function lsolve_lsmr!(x::Vector{AbstractFloat}, A, b::Vector{AbstractFloat})
+function lsolve_lsmr!(x, A, b)
     IterativeSolvers.lsmr!(x, A, b)
 end
 
@@ -66,7 +66,7 @@ nls = NewtonLinesearch(
 )
 
 # harmonic minimize fast
-minimize(nls)
+minimize!(nls,1)
 @test nls.nsteps == 1
 
 
@@ -91,13 +91,13 @@ function r_h!(H, x)
 end
 
 nls = NewtonLinesearch(
-    lsolve_lsmr!,
+    lsolve_svd!,
     rosenbrock,
     r_g!,
     r_h!,
     backtracking_line_search!,
     [0.0, 0.0],
 )
-minimize(nls)
+minimize!(nls)
 println(nls.x0)
 println(nls.nsteps)

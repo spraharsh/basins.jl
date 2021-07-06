@@ -30,7 +30,8 @@ function system_energy_pele(pot::PythonPotential, x)
 end
 
 function system_gradient_pele!(pot::PythonPotential, x, grad)
-    return pot.pele_potential.getEnergyGradientInPlace(x, grad)
+    pot.pele_potential.getEnergyGradientInPlace(x, grad)
+    grad
 end
 
 function system_gradient_pele(pot::PythonPotential, x)
@@ -44,7 +45,7 @@ end
 
 function gradient_problem_function_pele!(potential)
     function func!(du, u, p, t)
-        -system_gradient_pele!(potential, u, du)
+        system_gradient_pele!(potential, u, du)
         du .= -du
         nothing
     end

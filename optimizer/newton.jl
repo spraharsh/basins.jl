@@ -17,9 +17,9 @@ mutable struct NewtonLinesearch <: AbstractOptimizer
     nsteps::Int
     lstol::Float64
     convtol::Float64
-    x0::AbstractVector{AbstractFloat}
-    xold::AbstractVector{AbstractFloat}
-    grad::AbstractVector{AbstractFloat}
+    x0::AbstractVector{Float64}
+    xold::AbstractVector{Float64}
+    grad::AbstractVector{Float64}
     hess::Any
     converged::Bool
     energyold::Any
@@ -40,7 +40,7 @@ function NewtonLinesearch(
     x0,
     lstol = 10^-5,
     convtol = 10^-5,
-    ls_maxsteps = 10,
+    ls_maxsteps = 5,
 )
     N = length(x0)
     nfeval = 0
@@ -84,9 +84,10 @@ Fix function evaluations
     NLS.xold .= NLS.x0
 
     NLS.grad_func!(NLS.grad, NLS.x0)
-    NLS.nfeval += 1
 
-    if (norm(NLS.grad) < NLS.convtol)
+
+    NLS.nfeval += 1
+    if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
         return true
     end
 
@@ -100,7 +101,10 @@ Fix function evaluations
 
     NLS.linear_solver!(NLS.x0, NLS.hess, NLS.grad)
     NLS.x0 .= -NLS.x0
-
+    print("---------- dot product")
+    println(" this")
+    println(dot(NLS.x0, NLS.grad))
+    println(dot(NLS.grad, NLS.grad))
     # update xnew = newton step + xold with line search and store energy at point
     NLS.energyold =
         NLS.line_search!(NLS.x0, NLS.xold, NLS.energy_func, NLS.energyold, NLS.ls_maxsteps)
@@ -111,6 +115,8 @@ end
 function minimize!(NLS::NewtonLinesearch, max_steps::Int = 10000)
     for i = 1:max_steps
         converged = one_iteration!(NLS)
+        println(converged)
+        println(NLS.x0)
         if converged
             break
         end
@@ -123,7 +129,7 @@ end
 simple backtracking line search. just ensures energy decreases (but can implement
 sufficient decrease if need be)
 """
-@inline function backtracking_line_search!(step, x0, energy_func, eold, maxsteps = 10)
+@inline function backtracking_line_search!(step, x0, energy_func, eold, maxsteps = 100)
     if norm(step) == 0
         throw(error("cant have a zero value step"))
     end
@@ -144,7 +150,7 @@ sufficient decrease if need be)
         else
             return enew
         end
-        if (i == 10)
+        if (i == maxsteps)
             throw(
                 DomainError(0, "line search did not converge: gradient may be increasing"),
             )
