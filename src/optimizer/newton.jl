@@ -40,9 +40,11 @@ function NewtonLinesearch(
     x0,
     lstol = 10^-5,
     convtol = 10^-5,
-    ls_maxsteps = 5,
+    ls_maxsteps = 10,
 )
     N = length(x0)
+    println("NewtonLinesearch:")
+    println(N)
     nfeval = 0
     nheval = 0
     nsteps = 0
@@ -50,6 +52,7 @@ function NewtonLinesearch(
     convtol = convtol
     xold = zeros(N)
     grad = zeros(N)
+    print(N)
     x0 = copy(x0)
     hess = (zeros((N, N)))
     converged = false
@@ -80,17 +83,15 @@ end
 Fix function evaluations
 """
 @inline function one_iteration!(NLS::NewtonLinesearch)
-    # copy the old array into the new one 
+    # copy the old array into the new one
     NLS.xold .= NLS.x0
 
     NLS.grad_func!(NLS.grad, NLS.x0)
 
-
-    NLS.nfeval += 1
     if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
         return true
     end
-
+    
     # here since the step basically starts
     # after evaluating the gradient at the
     # previous point
@@ -98,13 +99,16 @@ Fix function evaluations
 
     NLS.hess_func!(NLS.hess, NLS.x0)
     NLS.nheval += 1
-
+    
     NLS.linear_solver!(NLS.x0, NLS.hess, NLS.grad)
     NLS.x0 .= -NLS.x0
-    print("---------- dot product")
-    println(" this")
-    println(dot(NLS.x0, NLS.grad))
-    println(dot(NLS.grad, NLS.grad))
+    grad_dot_prod = - dot(NLS.x0, NLS.grad)
+    @debug "grad_dot_prod = ", grad_dot_prod
+    if grad_dot_prod < 0
+        throw(
+            DomainError(0, "Error: step not in direction of negative gradient"),
+        )
+    end
     # update xnew = newton step + xold with line search and store energy at point
     NLS.energyold =
         NLS.line_search!(NLS.x0, NLS.xold, NLS.energy_func, NLS.energyold, NLS.ls_maxsteps)
@@ -115,8 +119,6 @@ end
 function minimize!(NLS::NewtonLinesearch, max_steps::Int = 10000)
     for i = 1:max_steps
         converged = one_iteration!(NLS)
-        println(converged)
-        println(NLS.x0)
         if converged
             break
         end
@@ -152,7 +154,7 @@ sufficient decrease if need be)
         end
         if (i == maxsteps)
             throw(
-                DomainError(0, "line search did not converge: gradient may be increasing"),
+                DomainError(0, "line search did not converge, too few steps"),
             )
         end
     end

@@ -10,6 +10,7 @@ include("../optimizer/optimizer.jl")
 include("../potentials/base_potential.jl")
 include("../potentials/pele-interface.jl")
 include("../utils/utils.jl")
+using Krylov
 
 """
 Mixed descent to assign minimum as fast as possible
@@ -29,6 +30,10 @@ mutable struct Mixed_Descent
     hessian_calculated::Bool
     hess::Any
     coords::Vector{Float64}
+    # data collection
+    n_e_evals  # energy evaluations
+    n_g_evals  # gradient evaluations
+    n_h_evals  # hessian evaluations
 end
 
 
@@ -38,10 +43,12 @@ function Mixed_Descent(pot::AbstractPotential, ode_solver, optimizer::AbstractOp
     tspan = (0, 100.)
     prob = ODEProblem{true}(odefunc_pele, coords, tspan)
     ode_solver = CVODE_BDF()
-    println(ode_tol)
-    println(prob)
-    integrator = init(prob, ode_solver, reltol = ode_tol, abstol=ode_tol)
+    integrator = init(prob, ode_solver, reltol=ode_tol, abstol=ode_tol)
     converged = false
+    if lambda_tol == 0
+        @warn "convexity tolerance is 0, leading to numerical convergence misses. setting to 1e-8"
+        lambda_tol = 1e-8
+    end
     iter_number = 0
     switch_to_phase_2 = false
     use_phase_1 = true
@@ -49,7 +56,7 @@ function Mixed_Descent(pot::AbstractPotential, ode_solver, optimizer::AbstractOp
     N = length(coords)
     hess = (zeros((length(coords), length(coords))))
     coords_in = copy(coords)
-    Mixed_Descent(integrator, optimizer, pot, converged, iter_number, conv_tol, lambda_tol, T, N, switch_to_phase_2, use_phase_1, hessian_calculated, hess, coords_in)
+    Mixed_Descent(integrator, optimizer, pot, converged, iter_number, conv_tol, lambda_tol, T, N, switch_to_phase_2, use_phase_1, hessian_calculated, hess, coords_in, 0, 0, 0)
 end
 
 
@@ -57,8 +64,6 @@ end
 
 function one_iteration!(mxd::Mixed_Descent)
     # Convexity check during cvode phase
-    println(mxd.iter_number%mxd.T == 0)
-    println(mxd.switch_to_phase_2)
     
     if (mxd.iter_number % mxd.T == 0 & (mxd.iter_number>0) & !(mxd.switch_to_phase_2))
         hess = system_hessian_pele(mxd.potential, mxd.integrator.u)
@@ -68,20 +73,18 @@ function one_iteration!(mxd::Mixed_Descent)
         if (max_eigval==0)
             max_eigval = 10^(-8)
         end
-        print("min_eigval: ")
-        println(min_eigval)
         convexity_estimate = abs(min_eigval/max_eigval)
-        if ((min_eigval< -10^-8) & (convexity_estimate >= mxd.conv_tol))
+        if ((min_eigval< -mxd.lambda_tol) & (convexity_estimate >= mxd.conv_tol))
             mxd.switch_to_phase_2 = false
-        elseif ((min_eigval < -10^-8) & (convexity_estimate<mxd.conv_tol))
-            mxd.switch_to_phase_2 =false
         else
             mxd.switch_to_phase_2 = true
             mxd.optimizer.x0 .= mxd.integrator.u
+            print()
         end   
     end
     converged = false
     # solve the ODE during phase 1
+    
     if !(mxd.switch_to_phase_2)
         step!(mxd.integrator)
         mxd.iter_number +=1
@@ -95,123 +98,63 @@ end
 
 function run!(mxd::Mixed_Descent, max_steps::Int = 10000)
     for i = 1:max_steps
-        println(i)
         converged = one_iteration!(mxd)
         if converged
             break
         end
     end
+    # stat collection from the potential
+    mxd.n_e_evals = mxd.potential.neev
+    mxd.n_g_evals = mxd.potential.ngev
+    mxd.n_h_evals = mxd.potential.nhev
     (mxd.optimizer.x0)
 end
 
 
 
-natoms = 64
-radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
-dim = 2
-phi = 0.9
-power = 2.5
-eps = 1
-
-length_arr = get_box_length(radii_arr, phi, dim)
-
-coords = generate_random_coordinates(length_arr, natoms, dim)
-
-using PyCall
-boxvec = [length_arr, length_arr]
-
-utils = pyimport("pele.utils.cell_scale")
-cell_scale = utils.get_ncellsx_scale(radii_arr, boxvec)
-println(cell_scale)
-
-pele_wrapped_pot = pot.InversePower(
-    2.5,
-    1.0,
-    radii_arr,
-    ndim = 2,
-    boxvec = boxvec,
-    use_cell_lists = false,
-    ncellx_scale = cell_scale,
-)
-
-pele_wrapped_python_pot = PythonPotential(pele_wrapped_pot)
 
 
 
-include("../optimizer/newton.jl")
-using IterativeSolvers
 
 
 # Todo remember to provide a good starting guess
 function lsolve_lsmr!(x, A, b) 
-   println("this")
-    print("eigenvalues original")
     min_eigval = minimum(eigvals(A))
-    println(eigvals(A))
+    @debug "min_eigval:" min_eigval
     if min_eigval<0
-        print("minimum eigenvalue")
-        println(min_eigval)
-        A[diagind(A)] .-=  - 2*min_eigval
+        A[diagind(A)] .-=  - 10^-3 + 3*min_eigval
     end
-    print("eigenvalues:")
-    println("-------- Eigenvalues ")
+    
     # print(eigvals(A))
     # IterativeSolvers.lsmr!(x, A, b)
     # print("x out of solver:")
     # println(x)
     # x
-    x .= qr!(A, Val(true)) \ b
-    println(x)
+    # Krylov.minres_qlp!(x, A, b)    
+    x .= svd!(A) \ b
+end
+
+function get_egh_funcs(potential)
+    e_func(x) = system_energy_pele(potential, x)
+    e_grad(G, x) = system_gradient_pele!(potential, x, G)
+
+    function e_hess(H, x)
+        H .= system_hessian_pele(potential, x)
+    end
+
+    (e_func, e_grad, e_hess)
 end
 
 
-function p_energy(x)
-    system_energy_pele(pele_wrapped_python_pot, x)
+function NewtonLinesearch(pot, coords)
+    ef, gf, hf = get_egh_funcs(pot)
+    NewtonLinesearch(
+       lsolve_lsmr!,
+        ef,
+        gf,
+        hf,
+        backtracking_line_search!,
+        coords
+    )
 end
-
-# r_g!(G, x) = 2*x
-
-function p_gradient(G, x)
-    system_gradient_pele!(pele_wrapped_python_pot, x, G)
-end
-
-function p_hessian(H, x)
-    H .= system_hessian_pele(pele_wrapped_python_pot, x)
-end
-
-
-
-nls = NewtonLinesearch(
-    lsolve_lsmr!,
-    p_energy,
-    p_gradient,
-    p_hessian,
-    backtracking_line_search!,
-    coords
-)
-
-using Sundials
-solver = CVODE_BDF()
-
-println(pele_wrapped_pot)
-println(coords)
-println(boxvec)
-println(radii_arr)
-mxd = Mixed_Descent(pele_wrapped_python_pot, solver, nls, coords,  30, 10^-5, 0.0 , 10^-3)
-println(coords)
-
-
-
-
-
-
-run!(mxd, 2000)
-
-println(coords)
-println(mxd.integrator.u .- coords)
-println("hellow world")
-println(p_energy(coords))
-
-
-
 

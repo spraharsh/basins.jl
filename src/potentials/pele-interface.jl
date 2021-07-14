@@ -18,20 +18,25 @@ I know it's complicated, but it's super easy compared to directly calling C++?
 only issue is that the jacobians have to be directly created every time.
 goal(write )
 """
-struct PythonPotential <: AbstractPotential
+mutable struct PythonPotential <: AbstractPotential
     pele_potential::PyObject
-    PythonPotential(pot) = new(pot)
+    ngev::Int
+    nhev::Int
+    neev::Int
 end
 
 
+PythonPotential(pot) = PythonPotential(pot, 0, 0, 0)
+
 
 function system_energy_pele(pot::PythonPotential, x)
+    pot.neev += 1
     return pot.pele_potential.getEnergy(x)
 end
 
 function system_gradient_pele!(pot::PythonPotential, x, grad)
+    pot.ngev +=1
     pot.pele_potential.getEnergyGradientInPlace(x, grad)
-    grad
 end
 
 function system_gradient_pele(pot::PythonPotential, x)
@@ -39,8 +44,17 @@ function system_gradient_pele(pot::PythonPotential, x)
 end
 
 function system_hessian_pele(pot::PythonPotential, x)
+    pot.nhev += 1
     return pot.pele_potential.getEnergyGradientHessian(x)[3]
 end
+
+
+# pass dummy into hessian 
+function system_grad_hessian_pele!(pot::PythonPotential, x, grad, hess)
+	pot.nhev += 1
+    return pot.pele_potential.getEnergyGradientHessianInPlace(x, grad, hess)
+end
+
 
 
 function gradient_problem_function_pele!(potential)
@@ -52,11 +66,19 @@ function gradient_problem_function_pele!(potential)
     return ODEFunction(func!)
 end
 
-if abspath(PROGRAM_FILE) == @__FILE__
-    ippot = pot.InversePower(2.5, 1.0, [1.0, 1.0], ndim = 2)
-    wrapped_pot = PythonPotential(ippot)
-    x = [1.0, 0.0, 2.0, 0]
-    system_energy_pele(wrapped_pot, x)
-    system_gradient_pele(wrapped_pot, x)
-    sparse(system_hessian_pele(wrapped_pot, x))
-end
+
+
+# ippot = pot.InversePower(2.5, 1.0, [1.0, 1.0], ndim = 2)
+# wrapped_pot = PythonPotential(ippot)
+# x = [1.0, 0.0, 2.0, 0]
+# system_energy_pele(wrapped_pot, x)
+# system_gradient_pele(wrapped_pot, x)
+# println(sparse(system_hessian_pele(wrapped_pot, x)))
+
+# grad = ones(length(x))
+# hess = ones(length(x)^2)
+
+# system_grad_hessian_pele!(wrapped_pot, x, grad, hess)
+# sparse(reshape(hess, (4,4)))
+# println(hess)
+

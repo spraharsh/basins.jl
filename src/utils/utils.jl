@@ -26,6 +26,7 @@ function get_box_length(radii, phi, dim)
     return box_length
 end
 
+
 function generate_random_coordinates(box_length, natoms, dim)
     dist = Uniform(0, box_length)
     println(natoms * dim)
