@@ -22,8 +22,8 @@ mutable struct NewtonLinesearch <: AbstractOptimizer
     grad::AbstractVector{Float64}
     hess::Any
     converged::Bool
-    energyold::Any
-    ls_maxsteps::Any
+    energyold::Float64
+    ls_maxsteps::Int
 end
 """
 Newton method with a line search
@@ -40,7 +40,7 @@ function NewtonLinesearch(
     x0,
     lstol = 10^-5,
     convtol = 10^-5,
-    ls_maxsteps = 10,
+    ls_maxsteps = 20,
 )
     N = length(x0)
     println("NewtonLinesearch:")
@@ -56,7 +56,7 @@ function NewtonLinesearch(
     x0 = copy(x0)
     hess = (zeros((N, N)))
     converged = false
-    energyold = 0
+    energyold = 0.0 # energy at previous iteration
     ls_maxsteps = ls_maxsteps
     NewtonLinesearch(
         linear_solver!,
@@ -131,7 +131,7 @@ end
 simple backtracking line search. just ensures energy decreases (but can implement
 sufficient decrease if need be)
 """
-@inline function backtracking_line_search!(step, x0, energy_func, eold, maxsteps = 100)
+@inline function backtracking_line_search!(step::Vector{Float64}, x0::Vector{Float64}, energy_func, eold::Float64, maxsteps::Int = 100)
     if norm(step) == 0
         throw(error("cant have a zero value step"))
     end

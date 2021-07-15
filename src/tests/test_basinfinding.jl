@@ -1,3 +1,5 @@
+using Sundials: linear_solver
+using Base: Float64
 """
 Tests for the minimum finder to match previous QNDF code through the python interface that was tested
 """

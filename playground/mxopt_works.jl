@@ -1,3 +1,4 @@
+using Core: Vector
 include("../src/optimizer/newton.jl")
 include("../src/minimumassign/mxopt.jl")
 
@@ -27,6 +28,8 @@ pele_wrapped_pot_2 = pot.InversePower(
     use_cell_lists = false,
     ncellx_scale = cell_scale,
 )
+
+
 pele_wrapped_python_pot_2 = PythonPotential(pele_wrapped_pot_2)
 using Sundials
 solver = CVODE_BDF()
@@ -39,7 +42,7 @@ println(coords)
 println(length(coords))
 println(length(radii_arr))
 
-mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords,  10, 10^-5, 0.0 , 10^-8)
+mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords, 10, 10^-5, 0.0, 10^-8)
 
 
 
@@ -54,16 +57,3 @@ mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords,  10, 10^-5, 
 run!(mxd, 2000)
 
 mxd.n_e_evals, mxd.n_g_evals, mxd.n_h_evals, mxd.iter_number
-
-
-
-
-
-
-
-
-
-
-
-
-

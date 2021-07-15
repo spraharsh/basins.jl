@@ -7,15 +7,15 @@ $$
 
 using DifferentialEquations
 using LinearAlgebra
+using Sundials
 include("../potentials/inversepower.jl")
 
 
 
 struct BasinAssigner
-    solver::Any
-    reltol::Any
-    abstol::Any
-    convtol::Any                     # tolerance for convergence to a minimum
+    reltol::Float64
+    abstol::Float64
+    convtol::Float64                  # tolerance for convergence to a minimum
 end
 
 
@@ -57,6 +57,15 @@ end
 
 
 
+struct MinStats
+    coords::Vector{Float64}
+    success::Bool
+    ngeval::Int64
+    nheval::Int64
+    nsolve::Int64
+end
+
+
 function find_corresponding_minimum(
     ba::BasinAssigner,
     func::ODEFunction,
@@ -64,22 +73,23 @@ function find_corresponding_minimum(
     maxsteps,
     potential,
 )
-    convergence_check(g_) = norm(g_) < ba.convtol
+    convergence_check(g_) = norm(g_) < ba.convtol * sqrt(length(g_))
     tspan = (0, 100000.0)
     prob = ODEProblem{true}(func, initial_point, tspan)
-    integrator = init(prob, ba.solver, reltol = ba.reltol, abstol = ba.abstol)
+    integrator =
+        init(prob, CVODE_BDF(linear_solver = :PCG), reltol = ba.reltol, abstol = ba.abstol)
     converged = false
     step_number = 0
-    println("step done")
     while (!converged && step_number <= maxsteps)
         step!(integrator)
         step_number += 1
         converged = convergence_check(get_du(integrator))
     end
-    println(integrator.sol.destats)
-    nf = integrator.sol.destats.nf
+    ngev = potential.ngev
+    nhev = potential.nhev
+    neev = potential.neev
+
     nsolve = step_number
-    nw = integrator.sol.destats.nw
     success = converged
-    return (integrator.u, nw, nf, nsolve, nw)
+    return MinStats(integrator.u, success, ngev, nhev, nsolve)
 end
