@@ -1,4 +1,4 @@
-using Core: Vector
+
 include("../src/optimizer/newton.jl")
 include("../src/minimumassign/mxopt.jl")
 
@@ -18,6 +18,13 @@ boxvec = [length_arr, length_arr]
 utils = pyimport("pele.utils.cell_scale")
 cell_scale = utils.get_ncellsx_scale(radii_arr, boxvec)
 println(cell_scale)
+
+
+
+@info radii_arr, "radii_arr"
+@info boxvec, "boxvec"
+@info coords, "coords"
+
 
 pele_wrapped_pot_2 = pot.InversePower(
     2.5,

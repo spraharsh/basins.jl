@@ -7,7 +7,7 @@ include("optimizer.jl")
 TODO: give types to everything
 """
 mutable struct NewtonLinesearch <: AbstractOptimizer
-    linear_solver!::Any
+    linear_solver!
     energy_func::Any
     grad_func!::Any
     hess_func!::Any
@@ -20,7 +20,7 @@ mutable struct NewtonLinesearch <: AbstractOptimizer
     x0::AbstractVector{Float64}
     xold::AbstractVector{Float64}
     grad::AbstractVector{Float64}
-    hess::Any
+    hess::Matrix{Float64}
     converged::Bool
     energyold::Float64
     ls_maxsteps::Int
@@ -88,6 +88,7 @@ Fix function evaluations
 
     NLS.grad_func!(NLS.grad, NLS.x0)
 
+    @info NLS.grad
     if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
         return true
     end
@@ -114,6 +115,42 @@ Fix function evaluations
         NLS.line_search!(NLS.x0, NLS.xold, NLS.energy_func, NLS.energyold, NLS.ls_maxsteps)
     return false
 end
+
+"""
+Does not calculate the step if the hessian already exists. 
+    TODO: fold the calculated hessian version into this one
+"""
+@inline function one_iteration!(NLS::NewtonLinesearch, hess::Matrix{Float64})
+    # copy the old array into the new one
+    NLS.xold .= NLS.x0
+
+    NLS.grad_func!(NLS.grad, NLS.x0)
+
+    @info NLS.grad
+    if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
+        return true
+    end
+    
+    # here since the step basically starts
+    # after evaluating the gradient at the
+    # previous point
+    NLS.nsteps += 1
+    NLS.linear_solver!(NLS.x0, hess, NLS.grad)
+    NLS.x0 .= -NLS.x0
+    grad_dot_prod = - dot(NLS.x0, NLS.grad)
+    @debug "grad_dot_prod = ", grad_dot_prod
+    if grad_dot_prod < 0
+        throw(
+            DomainError(0, "Error: step not in direction of negative gradient"),
+        )
+    end
+    # update xnew = newton step + xold with line search and store energy at point
+    NLS.energyold =
+        NLS.line_search!(NLS.x0, NLS.xold, NLS.energy_func, NLS.energyold, NLS.ls_maxsteps)
+    return false
+end
+
+
 
 
 function minimize!(NLS::NewtonLinesearch, max_steps::Int = 10000)

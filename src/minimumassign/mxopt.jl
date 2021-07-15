@@ -6,52 +6,52 @@
 using DifferentialEquations
 using LinearAlgebra
 using Sundials
+using DiffEqBase
 include("../optimizer/optimizer.jl")
 include("../potentials/base_potential.jl")
 include("../potentials/pele-interface.jl")
 include("../utils/utils.jl")
 using Krylov
-
 """
 Mixed descent to assign minimum as fast as possible
 """
 mutable struct Mixed_Descent
-    integrator::Any
-    optimizer::Any
-    potential::Any
-    converged::Any
-    iter_number::Any
-    conv_tol::Any
-    lambda_tol::Any
-    T::Any
-    N::Any
+    integrator::Sundials.CVODEIntegrator
+    optimizer::AbstractOptimizer
+    potential::AbstractPotential
+    converged::Bool
+    iter_number::Int
+    conv_tol::Float64
+    lambda_tol::Float64
+    T::Int
+    N::Int
     switch_to_phase_2::Bool
     use_phase_1::Bool
     hessian_calculated::Bool
     hess::Any
     coords::Vector{Float64}
     # data collection
-    n_e_evals::Any  # energy evaluations
-    n_g_evals::Any  # gradient evaluations
-    n_h_evals::Any  # hessian evaluations
+    n_e_evals::Int  # energy evaluations
+    n_g_evals::Int  # gradient evaluations
+    n_h_evals::Int  # hessian evaluations
 end
 
 
 
 function Mixed_Descent(
     pot::AbstractPotential,
-    ode_solver,
+    ode_solver::CVODE_BDF,
     optimizer::AbstractOptimizer,
-    coords,
-    T,
-    ode_tol,
-    lambda_tol,
-    conv_tol,
+    coords::Vector{Float64},
+    T::Int,
+    ode_tol::Float64,
+    lambda_tol::Float64,
+    conv_tol::Float64,
 )
     odefunc_pele = gradient_problem_function_pele!(pot)
     tspan = (0, 100.0)
     prob = ODEProblem{true}(odefunc_pele, coords, tspan)
-    ode_solver = CVODE_BDF()
+    ode_solver = CVODE_BDF(linear_solver=:Dense)
     integrator = init(prob, ode_solver, reltol = ode_tol, abstol = ode_tol)
     converged = false
     if lambda_tol == 0
@@ -103,6 +103,7 @@ function one_iteration!(mxd::Mixed_Descent)
         convexity_estimate = abs(min_eigval / max_eigval)
         if ((min_eigval < -mxd.lambda_tol) & (convexity_estimate >= mxd.conv_tol))
             mxd.switch_to_phase_2 = false
+            mxd.integrator.u = mxd.optimizer.x0
         else
             mxd.switch_to_phase_2 = true
             mxd.optimizer.x0 .= mxd.integrator.u
@@ -111,14 +112,14 @@ function one_iteration!(mxd::Mixed_Descent)
     end
     converged = false
     # solve the ODE during phase 1
-
     if !(mxd.switch_to_phase_2)
         step!(mxd.integrator)
         mxd.iter_number += 1
     else
-        minimize!(mxd.optimizer)
-        converged = true
-        mxd.iter_number += mxd.optimizer.nsteps
+        # minimize!(mxd.optimizer)
+        converged = one_iteration!(mxd.optimizer)
+        println(converged)
+        mxd.iter_number += 1
     end
     converged
 end
@@ -140,17 +141,12 @@ end
 
 
 
-
-
-
-
-
 # Todo remember to provide a good starting guess
 function lsolve_lsmr!(x, A, b)
     min_eigval = minimum(eigvals(A))
     @debug "min_eigval:" min_eigval
     if min_eigval < 0
-        A[diagind(A)] .-= -10^-3 + 3 * min_eigval
+        A[diagind(A)] .-= 2 * min_eigval 
     end
 
     # print(eigvals(A))
