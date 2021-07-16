@@ -15,7 +15,6 @@ mutable struct NewtonLinesearch <: AbstractOptimizer
     nfeval::Int
     nheval::Int
     nsteps::Int
-    lstol::Float64
     convtol::Float64
     x0::AbstractVector{Float64}
     xold::AbstractVector{Float64}
@@ -38,9 +37,8 @@ function NewtonLinesearch(
     hess_func!,
     line_search!,
     x0,
-    lstol = 10^-5,
-    convtol = 10^-5,
-    ls_maxsteps = 20,
+    convtol = 10^-8,
+    ls_maxsteps = 30,
 )
     N = length(x0)
     println("NewtonLinesearch:")
@@ -48,7 +46,6 @@ function NewtonLinesearch(
     nfeval = 0
     nheval = 0
     nsteps = 0
-    lstol = lstol
     convtol = convtol
     xold = zeros(N)
     grad = zeros(N)
@@ -67,7 +64,6 @@ function NewtonLinesearch(
         nfeval,
         nheval,
         nsteps,
-        lstol,
         convtol,
         x0,
         xold,
@@ -84,23 +80,26 @@ Fix function evaluations
 """
 @inline function one_iteration!(NLS::NewtonLinesearch)
     # copy the old array into the new one
+
+    
     NLS.xold .= NLS.x0
 
-    NLS.grad_func!(NLS.grad, NLS.x0)
+    # NLS.grad_func!(NLS.grad, NLS.x0)
+    NLS.hess_func!(NLS.hess, NLS.grad, NLS.x0)  # hessian
 
-    @info NLS.grad
+    @debug NLS.grad
     if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
         return true
     end
+    
     
     # here since the step basically starts
     # after evaluating the gradient at the
     # previous point
     NLS.nsteps += 1
 
-    NLS.hess_func!(NLS.hess, NLS.x0)
+    # NLS.hess_func!(NLS.hess, NLS.x0)
     NLS.nheval += 1
-    
     NLS.linear_solver!(NLS.x0, NLS.hess, NLS.grad)
     NLS.x0 .= -NLS.x0
     grad_dot_prod = - dot(NLS.x0, NLS.grad)
@@ -126,7 +125,7 @@ Does not calculate the step if the hessian already exists.
 
     NLS.grad_func!(NLS.grad, NLS.x0)
 
-    @info NLS.grad
+    # @info NLS.grad
     if (norm(NLS.grad)/sqrt(length(NLS.grad)) < NLS.convtol)
         return true
     end

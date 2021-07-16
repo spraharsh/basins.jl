@@ -35,7 +35,7 @@ function system_energy_pele(pot::PythonPotential, x)
 end
 
 function system_gradient_pele!(pot::PythonPotential, x, grad)
-    pot.ngev +=1
+    pot.ngev += 1
     pot.pele_potential.getEnergyGradientInPlace(x, grad)
 end
 
@@ -50,9 +50,17 @@ end
 
 
 # pass dummy into hessian 
-function system_grad_hessian_pele!(pot::PythonPotential, x, grad, hess)
-	pot.nhev += 1
-    return pot.pele_potential.getEnergyGradientHessianInPlace(x, grad, hess)
+function system_grad_hessian_pele!(
+    pot::PythonPotential,
+    x::Vector{Float64},
+    grad::Vector{Float64},
+    hess::Matrix{Float64},
+)
+    pot.nhev += 1
+    # since pele evaluates a flat hessian we need to flatten our hessian first
+    hess_flat = reshape(hess, (length(grad) * length(grad), 1))
+    hess_flat = dropdims(hess_flat, dims = 2)
+    pot.pele_potential.getEnergyGradientHessianInPlace(x, grad, hess_flat)
 end
 
 
@@ -66,9 +74,21 @@ function gradient_problem_function_pele!(potential)
     return ODEFunction(func!)
 end
 
+function gradient_problem_function_with_hessian_pele!(potential)
+    function func!(du, u, p, t)
+        system_gradient_pele!(potential, u, du)
+        du .= -du
+        nothing
+    end
+    function jac!(J, u, p, t)
+        J .= - system_hessian_pele(potential, u)
+    end
+    return ODEFunction(func!, jac=jac!)
+end
 
 
-# ippot = pot.InversePower(2.5, 1.0, [1.0, 1.0], ndim = 2)
+
+ippot = pot.InversePower(2.5, 1.0, [1.0, 1.0], ndim = 2)
 # wrapped_pot = PythonPotential(ippot)
 # x = [1.0, 0.0, 2.0, 0]
 # system_energy_pele(wrapped_pot, x)

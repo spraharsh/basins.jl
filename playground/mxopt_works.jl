@@ -1,11 +1,12 @@
 
+
 include("../src/optimizer/newton.jl")
 include("../src/minimumassign/mxopt.jl")
 
 
 
 
-natoms = 8
+natoms = 32
 radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
 dim = 2
 phi = 0.9
@@ -40,18 +41,19 @@ pele_wrapped_pot_2 = pot.InversePower(
 pele_wrapped_python_pot_2 = PythonPotential(pele_wrapped_pot_2)
 using Sundials
 solver = CVODE_BDF()
-nls = NewtonLinesearch(pele_wrapped_python_pot_2, coords)
-println(coords)
-println(boxvec)
-println(radii_arr)
-
-println(coords)
-println(length(coords))
-println(length(radii_arr))
+nls = NewtonLinesearch(pele_wrapped_python_pot_2, coords, 1e-8)
 
 mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords, 10, 10^-5, 0.0, 10^-8)
 
+rtol = 1e-4
+atol = 1e-4
+T = 30
+convergence_tolerance = 1e-8
+convexity_factor = 2.0
+convexity_tolerance = 1e-8
 
+
+mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords, T, rtol, convexity_tolerance, convergence_tolerance)
 
 # println(coords)
 
@@ -62,5 +64,6 @@ mxd = Mixed_Descent(pele_wrapped_python_pot_2, solver, nls, coords, 10, 10^-5, 0
 # println(coords-mxd.integrator.u)
 
 run!(mxd, 2000)
+println(mxd.potential.ngev)
 
 mxd.n_e_evals, mxd.n_g_evals, mxd.n_h_evals, mxd.iter_number

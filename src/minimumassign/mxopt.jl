@@ -12,6 +12,8 @@ include("../potentials/base_potential.jl")
 include("../potentials/pele-interface.jl")
 include("../utils/utils.jl")
 using Krylov
+using IterativeSolvers
+
 """
 Mixed descent to assign minimum as fast as possible
 """
@@ -27,8 +29,9 @@ mutable struct Mixed_Descent
     N::Int
     switch_to_phase_2::Bool
     use_phase_1::Bool
-    hessian_calculated::Bool
-    hess::Any
+    hess::Matrix{Float64}
+    dummy_grad::Vector{Float64} # Used as en extra for the hessian  
+    hess_current::Bool  # Checks whether hessian is current
     coords::Vector{Float64}
     # data collection
     n_e_evals::Int  # energy evaluations
@@ -48,12 +51,14 @@ function Mixed_Descent(
     lambda_tol::Float64,
     conv_tol::Float64,
 )
-    odefunc_pele = gradient_problem_function_pele!(pot)
+    odefunc_pele = gradient_problem_function_with_hessian_pele!(pot)
     tspan = (0, 100.0)
     prob = ODEProblem{true}(odefunc_pele, coords, tspan)
-    ode_solver = CVODE_BDF(linear_solver=:Dense)
+    ode_solver = CVODE_BDF(linear_solver = :Dense)
+    println(ode_tol)
     integrator = init(prob, ode_solver, reltol = ode_tol, abstol = ode_tol)
     converged = false
+    # @info lambda_tol
     if lambda_tol == 0
         @warn "convexity tolerance is 0, leading to numerical convergence misses. setting to 1e-8"
         lambda_tol = 1e-8
@@ -77,8 +82,9 @@ function Mixed_Descent(
         N,
         switch_to_phase_2,
         use_phase_1,
-        hessian_calculated,
         hess,
+        copy(coords), # dummy gradient
+        false,  # hessian not current
         coords_in,
         0,
         0,
@@ -90,11 +96,11 @@ end
 
 
 function one_iteration!(mxd::Mixed_Descent)
-    # Convexity check during cvode phase
-
+    mxd.hess_current = false # reset
     if (mxd.iter_number % mxd.T == 0 & (mxd.iter_number > 0) & !(mxd.switch_to_phase_2))
-        hess = system_hessian_pele(mxd.potential, mxd.integrator.u)
-        hess_eigvals = eigvals(hess)
+        system_grad_hessian_pele!(mxd.potential, mxd.integrator.u, mxd.dummy_grad, mxd.hess)
+        mxd.hess_current = true
+        hess_eigvals = eigvals(mxd.hess)
         min_eigval = minimum(hess_eigvals)
         max_eigval = maximum(hess_eigvals)
         if (max_eigval == 0)
@@ -107,7 +113,6 @@ function one_iteration!(mxd::Mixed_Descent)
         else
             mxd.switch_to_phase_2 = true
             mxd.optimizer.x0 .= mxd.integrator.u
-            print()
         end
     end
     converged = false
@@ -117,8 +122,11 @@ function one_iteration!(mxd::Mixed_Descent)
         mxd.iter_number += 1
     else
         # minimize!(mxd.optimizer)
-        converged = one_iteration!(mxd.optimizer)
-        println(converged)
+        if mxd.hess_current
+            converged = one_iteration!(mxd.optimizer, mxd.hess)
+        else
+            converged = one_iteration!(mxd.optimizer)
+        end
         mxd.iter_number += 1
     end
     converged
@@ -142,35 +150,29 @@ end
 
 
 # Todo remember to provide a good starting guess
-function lsolve_lsmr!(x, A, b)
+function lsolve_lsmr!(x::Vector{Float64}, A::Matrix{Float64}, b::Vector{Float64})
     min_eigval = minimum(eigvals(A))
     @debug "min_eigval:" min_eigval
     if min_eigval < 0
-        A[diagind(A)] .-= 2 * min_eigval 
+        A[diagind(A)] .-= 2 * min_eigval
     end
-
-    # print(eigvals(A))
-    # IterativeSolvers.lsmr!(x, A, b)
-    # print("x out of solver:")
-    # println(x)
-    # x
-    # Krylov.minres_qlp!(x, A, b)    
     x .= svd!(A) \ b
+    # IterativeSolvers.lsqr!(x, A, b, damp=1e-3, conlim=1e-11)00
+    # lsmr!(x, A, b)
 end
 
 function get_egh_funcs(potential)
     e_func(x) = system_energy_pele(potential, x)
     e_grad(G, x) = system_gradient_pele!(potential, x, G)
 
-    function e_hess(H, x)
-        H .= system_hessian_pele(potential, x)
+    function e_hess(H, g,  x)
+        system_grad_hessian_pele!(potential, x, g, H)
     end
-
     (e_func, e_grad, e_hess)
 end
 
 
-function NewtonLinesearch(pot, coords)
+function NewtonLinesearch(pot, coords, conv_tol, ls_max_steps=20)
     ef, gf, hf = get_egh_funcs(pot)
-    NewtonLinesearch(lsolve_lsmr!, ef, gf, hf, backtracking_line_search!, coords)
+    NewtonLinesearch(lsolve_lsmr!, ef, gf, hf, backtracking_line_search!, coords, conv_tol, ls_max_steps)
 end
