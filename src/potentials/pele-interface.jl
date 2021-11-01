@@ -50,6 +50,19 @@ end
 
 
 # pass dummy into hessian 
+function system_hessian_pele!(
+    pot::PythonPotential,
+    x::Vector{Float64},
+    hess::Matrix{Float64},
+)
+    pot.nhev += 1
+    # since pele evaluates a flat hessian we need to flatten our hessian first
+    hess_flat = reshape(hess, (length(x) * length(x), 1))
+    hess_flat = dropdims(hess_flat, dims = 2)
+    pot.pele_potential.getHessianInPlace(x, hess_flat)
+end
+
+# pass dummy into hessian 
 function system_grad_hessian_pele!(
     pot::PythonPotential,
     x::Vector{Float64},
