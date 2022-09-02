@@ -12,12 +12,15 @@ using DiffEqBase,
     ODEInterfaceDiffEq,
     LSODA,
     ModelingToolkit,
-    DiffEqDevTools
+    DiffEqDevTools,
+    SparseArrays
 using PyCall
 using Plots
-include("potentials/inversepower.jl")
-include("minimumassign/minimumassign.jl")
-include("utils/utils.jl")
+using LinearSolve
+include("src/potentials/inversepower.jl")
+include("src/minimumassign/minimumassign.jl")
+include("src/utils/utils.jl")
+include("src/potentials/pele-interface.jl")
 
 natoms = 1024
 radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
@@ -30,13 +33,17 @@ length_arr = get_box_length(radii_arr, phi, dim)
 
 coords = generate_random_coordinates(length_arr, natoms, dim)
 
+# calculate a hessian
+
+
+
+
 tol = 1e-4
 tspan = (0, 100000.0)
 
 print("using OMP NUM THREADS: ")
 println(ENV["OMP_NUM_THREADS"])
-using PyCall
-include("potentials/pele-interface.jl")
+
 boxvec = [length_arr, length_arr]
 
 utils = pyimport("pele.utils.cell_scale")
@@ -56,18 +63,25 @@ pele_wrapped_pot = pot.InversePower(
 
 pele_wrapped_pot.getEnergy(coords)
 
+
+hess = zeros(length(coords), length(coords))
 pele_wrapped_python_pot = PythonPotential(pele_wrapped_pot)
+system_hessian_pele!(pele_wrapped_python_pot, coords, hess)
+sparse_hess = sparse(hess)
+
 odefunc_pele = gradient_problem_function_pele!(pele_wrapped_python_pot)
 
 prob = ODEProblem{true}(odefunc_pele, coords, tspan);
 
 BLAS.set_num_threads(1);        # for julia blas only
-abstols = 1.0 ./ 10.0 .^ (5:8);
-reltols = 1.0 ./ 10.0 .^ (5:8);
+abstols = 1.0 ./ 10.0 .^ (6:10);
+reltols = 1.0 ./ 10.0 .^ (6:10);
 setups = [
     Dict(:alg => QNDF(autodiff = false)),
+    Dict(:alg => QNDF(linsolve=KrylovJL_GMRES(), autodiff = false)),
     # Dict(:alg=>rodas()),
-    Dict(:alg => CVODE_BDF(linear_solver = :Dense)),
+    Dict(:alg => CVODE_BDF()),
+#    Dict(:alg => CVODE_BDF(linear_solver = :KLU)),
     Dict(:alg => CVODE_BDF(linear_solver = :GMRES)),
     Dict(:alg => CVODE_BDF(linear_solver = :BCG)),
     Dict(:alg => CVODE_BDF(linear_solver = :PCG)),
@@ -77,9 +91,12 @@ setups = [
     # Dict(:alg=>RadauIIA5(autodiff=false)),
     # Dict(:alg=>lsoda()),
 ];
+
 solnames = [
     "QNDF",
+    "QNDF_KrylovJL_GMRES",
     "CVODE_BDF Dense",
+#    "CVODE_BDF Sparse",
     "CVODE_BDF GMRES",
     "CVODE_BDF BCG",
     "CVODE_BDF PCG",
@@ -87,26 +104,19 @@ solnames = [
 ]
 
 @time sol =
-    solve(prob, CVODE_BDF(linear_solver = :PCG), abstol = 1 / 10^6, reltol = 1 / 10^5);
+    solve(prob, CVODE_BDF(linear_solver = :PCG), abstol = 1 / 10^12, reltol = 1 / 10^12);
 sol.destats
 
-vars = []
-for i = 1:natoms
-    push!(vars, (2 * i - 1, 2 * i))
-end
-println(vars)
-
-# wp2 = WorkPrecisionSet(
-#     prob,
-#     abstols,
-#     reltols,
-#     setups;
-#     error_estimate = :l2,
-#     names = solnames,
-#     appxsol = sol,
-#     maxiters = Int(1e5),
-#     numruns = 1,
-# );
-# plot(wp2)
-
-# savefig("comparison_cvode_cell_lists_OMP_THREADS_" * string(ENV["OMP_NUM_THREADS"]))
+wp2 = WorkPrecisionSet(
+    prob,
+    abstols,
+    reltols,
+    setups;
+    error_estimate = :l2,
+    names = solnames,
+    appxsol = sol,
+    maxiters = Int(1e5),
+    numruns = 1,
+);
+plot(wp2)
+savefig("comparison_cvode_cell_lists_OMP_THREADS_particles_"*string(natoms)*"_" * string(ENV["OMP_NUM_THREADS"]))
