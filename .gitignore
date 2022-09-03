@@ -3,3 +3,4 @@
 **/statprof
 /.ipynb_checkpoints/
 /.vscode/
+**/*.jlprof
