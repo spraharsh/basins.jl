@@ -76,16 +76,18 @@ end
 
 
 
-function gradient_problem_function_pele!(potential)
+function gradient_problem_function_pele!(potential; kwargs...)
     function func!(du, u, p, t)
         system_gradient_pele!(potential, u, du)
         du .= -du
         nothing
     end
-    return ODEFunction(func!)
+    return ODEFunction(func!; kwargs...)
 end
 
-function gradient_problem_function_with_hessian_pele!(potential)
+
+
+function gradient_problem_function_with_hessian_pele!(potential; kwargs...)
     function func!(du, u, p, t)
         system_gradient_pele!(potential, u, du)
         du .= -du
@@ -95,5 +97,5 @@ function gradient_problem_function_with_hessian_pele!(potential)
         system_hessian_pele!(potential, u, J)
         J .= -J
     end
-    return ODEFunction(func!, jac=jac!)
+    return ODEFunction(func!, jac = jac!; kwargs...)
 end
