@@ -2,3 +2,6 @@ name = "basins"
 uuid = "9e88954f-672e-4366-a250-20b5f70cde45"
 authors = ["Praharsh Suryadevara <praharsharmm@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"

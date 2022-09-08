@@ -4,3 +4,12 @@
 /.ipynb_checkpoints/
 /.vscode/
 **/*.jlprof
+
+
+# idea, add energy terms in that contribution threshold
+# add gradient terms in that contribution threshold
+# add hessian terms in that contribution threshold
+# Question, why would hessian terms in the above threshold not hold?
+# Steer perpendicular to the space
+
+
