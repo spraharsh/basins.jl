@@ -76,7 +76,7 @@ end
 
 
 
-function gradient_problem_function_pele!(potential; kwargs...)
+function get_ode_func_gradient_problem_pele!(potential; kwargs...)
     function func!(du, u, p, t)
         system_gradient_pele!(potential, u, du)
         du .= -du
@@ -87,7 +87,7 @@ end
 
 
 
-function gradient_problem_function_with_hessian_pele!(potential; kwargs...)
+function get_ode_func_gradient_problem_with_hessian_pele!(potential; kwargs...)
     function func!(du, u, p, t)
         system_gradient_pele!(potential, u, du)
         du .= -du
@@ -96,6 +96,25 @@ function gradient_problem_function_with_hessian_pele!(potential; kwargs...)
     function jac!(J, u, p, t)
         system_hessian_pele!(potential, u, J)
         J .= -J
+        nothing
     end
     return ODEFunction(func!, jac = jac!; kwargs...)
+end
+
+function get_ode_func_gradient_problem_with_sp_hessian_pele!(potential; kwargs...)
+    function func!(du, u, p, t)
+        system_gradient_pele!(potential, u, du)
+        du .= -du
+        nothing
+    end
+
+    # not technically in place because it reconstructs the jacobian every time
+    # but we can figure out what we need to do if it works
+    function jac!(J, u, p, t)
+        J_d = zeros(length(u), length(u))
+        system_hessian_pele!(potential, u, J_d)
+        J_d .= -J_d
+        J = sparse(J_d)
+        return J
+    end
 end
