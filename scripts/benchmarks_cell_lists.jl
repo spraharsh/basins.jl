@@ -17,12 +17,12 @@ using DiffEqBase,
 using PyCall
 using Plots
 using LinearSolve
-include("src/potentials/inversepower.jl")
-include("src/minimumassign/minimumassign.jl")
-include("src/utils/utils.jl")
-include("src/potentials/pele-interface.jl")
+include("../src/potentials/inversepower.jl")
+include("../src/minimumassign/minimumassign.jl")
+include("../src/utils/utils.jl")
+include("../src/potentials/pele-interface.jl")
 
-natoms = 1024
+natoms = 16
 radii_arr = generate_radii(0, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
 dim = 2
 phi = 0.9
@@ -69,7 +69,7 @@ pele_wrapped_python_pot = PythonPotential(pele_wrapped_pot)
 system_hessian_pele!(pele_wrapped_python_pot, coords, hess)
 sparse_hess = sparse(hess)
 
-odefunc_pele = gradient_problem_function_pele!(pele_wrapped_python_pot)
+odefunc_pele = get_ode_func_gradient_problem_pele!(pele_wrapped_python_pot)
 
 prob = ODEProblem{true}(odefunc_pele, coords, tspan);
 
