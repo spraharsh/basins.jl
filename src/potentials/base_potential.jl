@@ -42,8 +42,6 @@ function system_energy(potential, x)
     if natoms * dim != size(x, 1)
         throw(DimensionMismatch(x, "coordinates have the wrong dimensions"))
     end
-    println(natoms)
-    println(dim)
     if natoms != size(potential.radii, 1)
         throw(
             DimensionMismatch(

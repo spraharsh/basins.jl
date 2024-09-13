@@ -76,8 +76,12 @@ function find_corresponding_minimum(
     convergence_check(g_) = norm(g_) < ba.convtol * sqrt(length(g_))
     tspan = (0, 100000.0)
     prob = ODEProblem{true}(func, initial_point, tspan)
-    integrator =
-        init(prob, CVODE_BDF(linear_solver = :Dense), reltol = ba.reltol, abstol = ba.abstol)
+    integrator = init(
+        prob,
+        CVODE_BDF(linear_solver = :Dense),
+        reltol = ba.reltol,
+        abstol = ba.abstol,
+    )
     converged = false
     step_number = 0
     while (!converged && step_number <= maxsteps)
