@@ -28,7 +28,7 @@ end
     odefunc = gradient_problem_function_all!(potential)
     prob = ODEProblem{true}(odefunc, coords, tspan)
 
-    sol = solve(prob, CVODE_BDF(), abstol = 1 / 10^10, reltol = 1 / 10^10)
+    sol = solve(prob, CVODE_BDF(), abstol = 1 / 10^10, reltol = 1 / 10^10, callback = true_sol_callback)
 
     setups = [Dict(:alg => QNDF(autodiff = false)), Dict(:alg => CVODE_BDF())]
     names = ["QNDF", "CVODE_BDF"]
