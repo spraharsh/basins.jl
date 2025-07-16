@@ -57,7 +57,6 @@ end
         data = [work_precision.times, work_precision.errors]
         push!(get!(work_precision_data, work_precision.name, []), data)
     end
-    print("don")
     return work_precision_data
 end
 
@@ -101,7 +100,7 @@ for (name, data) in wp_data
 
     CSV.write("inversepower_$(natoms)atoms_$(seeds)_average_$name.csv", name_df)
 end
-println("mean data")
+
 # Plotting
 p = plot(
     title = "Mean Errors vs Mean Times",

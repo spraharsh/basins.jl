@@ -18,7 +18,6 @@ function benchmark_data(seeds, tols, natoms, phi, power, eps, dim, tspan)
     setups = [Dict(:alg => QNDF(autodiff = false)), Dict(:alg => CVODE_BDF())]
     names = ["QNDF", "CVODE_BDF"]
     all_plot_data = []
-
     for seed in seeds
         radii_arr = generate_radii(seed, natoms, 1.0, 1.4, 0.05, 0.05 * 1.4)
         box_length = get_box_length(radii_arr, phi, dim)
@@ -39,13 +38,12 @@ function benchmark_data(seeds, tols, natoms, phi, power, eps, dim, tspan)
 
         for tol in tols
             for alg in [CVODE_BDF(), QNDF(autodiff = false)]
-                elapsed_time = @elapsed sol = solve(prob, alg, abstol = tol, reltol = tol)
+                elapsed_time = @elapsed sol = solve(prob, alg, abstol = tol, reltol = tol, callback = other_sol_callback)
                 max_dist = maximum([
                     sqrt((sol[end][i] - tsend[i])^2 + (sol[end][i+1] - tsend[i+1])^2)
                     for i = 1:2:length(sol[end])
                 ])
                 disp_norm = norm(sol[end] - tsend)
-
                 push!(
                     plot_data,
                     (tol, string(nameof(typeof(alg))), elapsed_time, disp_norm, max_dist),
@@ -98,13 +96,14 @@ function benchmark_data(seeds, tols, natoms, phi, power, eps, dim, tspan)
     return grouped_data
 end
 
+
 # Parameters
 natoms = 8
 phi = 0.9
 power = 2.5
 eps = 1
 dim = 2.0
-tspan = (0, 100000.0)
+tspan = (0, 10000.0)
 
 seeds = 1:10
 tols = [1e-5, 1e-6, 1e-7, 1e-8]

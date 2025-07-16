@@ -5,7 +5,10 @@
 /.vscode/
 **/*.jlprof
 _research
-**/*.jld2
+**/*.err
+**/*.out
 **/*.csv
+**/*.jld2
+
 
 
